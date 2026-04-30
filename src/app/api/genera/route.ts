@@ -56,11 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const testo = await generateDocument(
-      tipo as DocumentType,
-      campi,
-      user.id
-    );
+const testo = await generateDocument(
+  tipo as DocumentType,
+  campi
+);
 
     const docTypeLabel = {
       email: "Email",
