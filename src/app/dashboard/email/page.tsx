@@ -1,37 +1,60 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { TemplateForm } from "@/components/template-form";
-import { Select } from "@/components/ui/select";
 
-export default async function EmailPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function EmailPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [documentiRimasti, setDocumentiRimasti] = useState(Infinity);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user?.id)
-    .single();
+  useEffect(() => {
+    const getData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-  const documentiRimasti =
-    profile?.piano === "free"
-      ? Math.max(0, 3 - (profile?.documenti_questo_mese || 0))
-      : Infinity;
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      const docRimasti =
+        profile?.piano === "free"
+          ? Math.max(0, 3 - (profile?.documenti_questo_mese || 0))
+          : Infinity;
+
+      setUser(user);
+      setDocumentiRimasti(docRimasti);
+      setLoading(false);
+    };
+
+    getData();
+  }, [router, supabase]);
 
   const handleSubmit = async (data: Record<string, string>) => {
-    "use server";
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/genera`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tipo: "email",
-        campi: data,
-        titolo: `Email - ${data.oggetto || new Date().toLocaleDateString("it-IT")}`,
-      }),
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/genera`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: "email",
+          campi: data,
+          titolo: `Email - ${data.oggetto || new Date().toLocaleDateString("it-IT")}`,
+        }),
+      }
+    );
 
     const result = await response.json();
 
@@ -41,6 +64,14 @@ export default async function EmailPage() {
 
     return result;
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl flex items-center justify-center min-h-[400px]">
+        <div className="text-[#6B7280]">Caricamento...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">
