@@ -1,12 +1,14 @@
 import OpenAI from "openai";
 
-export const openai = new OpenAI({
-  baseURL: process.env.OPENAI_BASE_URL || "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.OPENAI_API_KEY,
-  defaultHeaders: {
-    "NVIDIA-API-Key": process.env.OPENAI_API_KEY,
-  },
-});
+function getOpenAIClient() {
+  return new OpenAI({
+    baseURL: process.env.OPENAI_BASE_URL || "https://integrate.api.nvidia.com/v1",
+    apiKey: process.env.OPENAI_API_KEY || "",
+    defaultHeaders: {
+      "NVIDIA-API-Key": process.env.OPENAI_API_KEY || "",
+    },
+  });
+}
 
 export const MODEL = process.env.OPENAI_MODEL || "nvidia/nemotron-70b";
 
@@ -14,48 +16,11 @@ export const SYSTEM_PROMPT = `Sei un assistente legale e professionale italiano.
 
 export type DocumentType = "email" | "preventivo" | "reclamo" | "contratto" | "report";
 
-interface EmailFields {
-  destinatario: string;
-  oggetto: string;
-  contenuto: string;
-  tono: string;
-  lunghezza: string;
-}
-
-interface PreventivoFields {
-  cliente: string;
-  professionista: string;
-  servizio: string;
-  importo: string;
-  note: string;
-}
-
-interface ReclamoFields {
-  mittente: string;
-  oggetto: string;
-  contenuto: string;
-  posizione: string;
-  azione: string;
-}
-
-interface ContrattoFields {
-  professionista: string;
-  cliente: string;
-  servizio: string;
-  compenso: string;
-  durata: string;
-  pagamento: string;
-}
-
-interface ReportFields {
-  cliente: string;
-  periodo: string;
-  attivita: string;
-  risultati: string;
-  prossimi: string;
-  tono: string;
-}
-
+interface EmailFields { destinatario: string; oggetto: string; contenuto: string; tono: string; lunghezza: string; }
+interface PreventivoFields { cliente: string; professionista: string; servizio: string; importo: string; note: string; }
+interface ReclamoFields { mittente: string; oggetto: string; contenuto: string; posizione: string; azione: string; }
+interface ContrattoFields { professionista: string; cliente: string; servizio: string; compenso: string; durata: string; pagamento: string; }
+interface ReportFields { cliente: string; periodo: string; attivita: string; risultati: string; prossimi: string; tono: string; }
 type DocumentFields = EmailFields | PreventivoFields | ReclamoFields | ContrattoFields | ReportFields;
 
 function buildPrompt(tipo: DocumentType, fields: DocumentFields): string {
@@ -112,19 +77,15 @@ Includi: oggetto del contratto, obblighi delle parti, compenso e pagamento, dura
 - Tono: ${f.tono}
 Struttura il report con sezioni chiare: Sommario, Attività del Periodo, Risultati, Prossimi Obiettivi.`;
     }
-    default:
-      return "";
+    default: return "";
   }
 }
 
-export async function generateDocument(
-  tipo: DocumentType,
-  fields: DocumentFields,
-  userId: string
-): Promise<string> {
+export async function generateDocument(tipo: DocumentType, fields: DocumentFields): Promise<string> {
+  const client = getOpenAIClient();
   const userPrompt = buildPrompt(tipo, fields);
 
-  const response = await openai.chat.completions.create({
+  const response = await client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
