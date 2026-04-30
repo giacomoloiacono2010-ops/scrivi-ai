@@ -1,35 +1,36 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Copy, Check, Users, Gift, Star } from "lucide-react";
 import { useState } from "react";
 
-export default async function ReferralPage() {
-  const supabase = await createClient();
+function ClientCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  if (!user) {
-    redirect("/login");
-  }
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded transition-colors"
+    >
+      {copied ? <Check className="w-4 h-4 text-[#16A34A]" /> : <Copy className="w-4 h-4" />}
+    </button>
+  );
+}
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+interface ReferralClientProps {
+  referralCode: string;
+  referralsCount: number;
+  convertedCount: number;
+}
 
-  const referralCode = profile?.referral_code || "";
+function ReferralClient({ referralCode, referralsCount, convertedCount }: ReferralClientProps) {
   const referralLink = `scriviAI.it/register?ref=${referralCode}`;
-
-  const { data: referrals } = await supabase
-    .from("referrals")
-    .select("*")
-    .eq("referrer_id", user.id);
-
-  const convertedCount = referrals?.filter((r) => r.stato === "converted").length || 0;
 
   return (
     <div className="max-w-2xl">
@@ -67,7 +68,7 @@ export default async function ReferralPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 text-center">
           <Users className="w-6 h-6 mx-auto text-[#6B7280] mb-2" />
           <p className="text-2xl font-bold text-[#111827]">
-            {referrals?.length || 0}
+            {referralsCount}
           </p>
           <p className="text-xs text-[#6B7280]">Iscritti</p>
         </div>
@@ -79,7 +80,7 @@ export default async function ReferralPage() {
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 text-center">
           <Gift className="w-6 h-6 mx-auto text-[#6B7280] mb-2" />
           <p className="text-2xl font-bold text-[#111827]">
-            {convertedCount * 1}
+            {convertedCount}
           </p>
           <p className="text-xs text-[#6B7280]">Mesi gratis</p>
         </div>
@@ -135,21 +136,41 @@ export default async function ReferralPage() {
   );
 }
 
-function ClientCopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+export default async function ReferralPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  const referralCode = profile?.referral_code || "";
+
+  const { data: referrals } = await supabase
+    .from("referrals")
+    .select("*")
+    .eq("referrer_id", user.id);
+
+  const referralsCount = referrals?.length || 0;
+  const convertedCount = referrals?.filter((r) => r.stato === "converted").length || 0;
 
   return (
-    <button
-      onClick={handleCopy}
-      className="p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded transition-colors"
-    >
-      {copied ? <Check className="w-4 h-4 text-[#16A34A]" /> : <Copy className="w-4 h-4" />}
-    </button>
+    <ReferralClient
+      referralCode={referralCode}
+      referralsCount={referralsCount}
+      convertedCount={convertedCount}
+    />
   );
 }
